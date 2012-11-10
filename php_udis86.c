@@ -42,6 +42,7 @@ const zend_function_entry udis86_functions[] = {
 	PHP_FE(udis86_insn_asm, NULL)
 	PHP_FE(udis86_insn_len, NULL)
 	PHP_FE(udis86_insn_hex, NULL)
+	PHP_FE(udis86_input_skip, NULL)
 	PHP_FE_END
 };
 /* }}} */
@@ -209,6 +210,22 @@ PHP_FUNCTION(udis86_insn_hex)
 	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
 	
 	RETURN_STRING(ud_insn_hex(ud_obj), 1);
+}
+
+PHP_FUNCTION(udis86_input_skip)
+{
+	ud_t *ud_obj;
+	zval *ud;
+	long n;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
+		&ud, &n) == FAILURE) {
+		return;
+	}
+	
+	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	
+	ud_input_skip(ud_obj, n);
 }
 	
 

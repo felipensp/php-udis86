@@ -40,8 +40,6 @@ extern zend_module_entry udis86_module_entry;
 
 PHP_MINIT_FUNCTION(udis86);
 PHP_MSHUTDOWN_FUNCTION(udis86);
-PHP_RINIT_FUNCTION(udis86);
-PHP_RSHUTDOWN_FUNCTION(udis86);
 PHP_MINFO_FUNCTION(udis86);
 
 PHP_FUNCTION(udis86_init);
@@ -50,6 +48,7 @@ PHP_FUNCTION(udis86_disassemble);
 PHP_FUNCTION(udis86_insn_asm);
 PHP_FUNCTION(udis86_insn_len);
 PHP_FUNCTION(udis86_insn_hex);
+PHP_FUNCTION(udis86_input_skip);
 
 #ifdef ZTS
 #define PHP_UDIS86_G(v) TSRMG(udis86_globals_id, zend_udis86_globals *, v)
