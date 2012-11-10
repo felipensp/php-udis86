@@ -90,6 +90,7 @@ static PHP_FUNCTION(udis86_init)
 	
 	ud_init(ud_obj);
 	ud_set_syntax(ud_obj, UD_SYN_ATT);
+	ud_set_input_buffer(ud_obj, "", 0);
 	
 	ZEND_REGISTER_RESOURCE(return_value, ud_obj, le_udis86);
 }
@@ -122,8 +123,9 @@ static PHP_FUNCTION(udis86_set_mode)
 }
 /* }}} */
 
-/* {{{ proto void udis86_input_file(resource obj, string file)
-   Set the file as internal buffer */
+/* {{{ proto bool udis86_input_file(resource obj, string file)
+   Set the file as internal buffer, return false if any error ocurred,
+   otherwise true */
 static PHP_FUNCTION(udis86_input_file) 
 {
 	ud_t *ud_obj;
@@ -131,6 +133,7 @@ static PHP_FUNCTION(udis86_input_file)
 	char *fname;
 	int fname_len;
 	FILE *fp;
+	char resolved_path[MAXPATHLEN];
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 		&ud, &fname, &fname_len) == FAILURE) {
@@ -139,9 +142,25 @@ static PHP_FUNCTION(udis86_input_file)
 	
 	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
 	
-	fp = fopen(fname, "rb");
+#if PHP_API_VERSION < 20100412
+	if ((PG(safe_mode) && (!php_checkuid(fname, NULL, CHECKUID_CHECK_FILE_AND_DIR))) || php_check_open_basedir(fname TSRMLS_CC)) {
+#else
+	if (php_check_open_basedir(fname TSRMLS_CC)) {
+#endif
+		RETURN_FALSE;
+	}
+	if (!expand_filepath_with_mode(fname, resolved_path, NULL, 0, CWD_EXPAND TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+		
+	if ((fp = fopen(resolved_path, "rb")) == NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to open file");
+		RETURN_FALSE;
+	}
 	
 	ud_set_input_file(ud_obj, fp);
+	
+	RETURN_TRUE;
 }
 /* }}} */
 
