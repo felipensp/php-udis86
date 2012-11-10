@@ -4,7 +4,7 @@ php-udis86
 PHP bindings for udis86 library
 
 
-{{{
+```php
 <?php
 
 $rs = udis86_init();
@@ -17,4 +17,4 @@ while (udis86_disassemble($rs)) {
 		udis86_insn_len($rs),
 		udis86_insn_hex($rs));
 }
-}}}
+```
