@@ -236,29 +236,47 @@ static PHP_FUNCTION(udis86_input_skip)
 }
 /* }}} */
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_finfo_buffer, 0, 0, 2)
-	ZEND_ARG_INFO(0, finfo)
-	ZEND_ARG_INFO(0, string)
-	ZEND_ARG_INFO(0, options)
-	ZEND_ARG_INFO(0, context)
+/* {{{ arginfo 
+ */
+ZEND_BEGIN_ARG_INFO_EX(arginfo_udis86_void, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
-/* {{{ php_udis86_functions[]
+ZEND_BEGIN_ARG_INFO_EX(arginfo_udis86_obj_only, 0, 0, 1)
+	ZEND_ARG_INFO(0, obj)
+ZEND_END_ARG_INFO()	
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_udis86_input_file, 0, 0, 2)
+	ZEND_ARG_INFO(0, obj)
+	ZEND_ARG_INFO(0, file)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_udis86_input_skip, 0, 0, 2)
+	ZEND_ARG_INFO(0, obj)
+	ZEND_ARG_INFO(0, mode)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_udis86_set_mode, 0, 0, 2)
+	ZEND_ARG_INFO(0, obj)
+	ZEND_ARG_INFO(0, mode)
+ZEND_END_ARG_INFO()
+/* }}} */
+
+/* {{{ udis86_functions[]
  */
 const zend_function_entry udis86_functions[] = {
-	PHP_FE(udis86_init,	NULL)
-	PHP_FE(udis86_input_file, NULL)
-	PHP_FE(udis86_disassemble, NULL)
-	PHP_FE(udis86_insn_asm, NULL)
-	PHP_FE(udis86_insn_len, NULL)
-	PHP_FE(udis86_insn_hex, NULL)
-	PHP_FE(udis86_input_skip, NULL)
-	PHP_FE(udis86_set_mode, NULL)
+	PHP_FE(udis86_init,        arginfo_udis86_void)
+	PHP_FE(udis86_input_file,  arginfo_udis86_input_file)
+	PHP_FE(udis86_disassemble, arginfo_udis86_obj_only)
+	PHP_FE(udis86_insn_asm,    arginfo_udis86_obj_only)
+	PHP_FE(udis86_insn_len,    arginfo_udis86_obj_only)
+	PHP_FE(udis86_insn_hex,    arginfo_udis86_obj_only)
+	PHP_FE(udis86_input_skip,  arginfo_udis86_input_skip)
+	PHP_FE(udis86_set_mode,    arginfo_udis86_set_mode)
 	PHP_FE_END
 };
 /* }}} */
 
-/* {{{ php_udis86_module_entry
+/* {{{ udis86_module_entry
  */
 zend_module_entry udis86_module_entry = {
 #if ZEND_MODULE_API_NO >= 20010901
