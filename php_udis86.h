@@ -26,21 +26,9 @@
 extern zend_module_entry udis86_module_entry;
 #define phpext_udis86_ptr &udis86_module_entry
 
-#ifdef PHP_WIN32
-#	define PHP_PHP_UDIS86_API __declspec(dllexport)
-#elif defined(__GNUC__) && __GNUC__ >= 4
-#	define PHP_PHP_UDIS86_API __attribute__ ((visibility("default")))
-#else
-#	define PHP_PHP_UDIS86_API
-#endif
-
 #ifdef ZTS
 #include "TSRM.h"
 #endif
-
-PHP_MINIT_FUNCTION(udis86);
-PHP_MSHUTDOWN_FUNCTION(udis86);
-PHP_MINFO_FUNCTION(udis86);
 
 #ifdef ZTS
 #define PHP_UDIS86_G(v) TSRMG(udis86_globals_id, zend_udis86_globals *, v)
