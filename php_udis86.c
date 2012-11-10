@@ -47,7 +47,10 @@ static void udis86_resource_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
 /* {{{ PHP_MINIT_FUNCTION
  */
 PHP_MINIT_FUNCTION(udis86)
-{	
+{
+	REGISTER_LONG_CONSTANT("UDIS86_ATT",   PHP_UDIS86_ATT,   CONST_CS|CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("UDIS86_INTEL", PHP_UDIS86_INTEL, CONST_CS|CONST_PERSISTENT);
+	
 	le_udis86 = zend_register_list_destructors_ex(
 		udis86_resource_dtor, NULL, "udis86", module_number);	
 	
@@ -84,10 +87,8 @@ static PHP_FUNCTION(udis86_init)
 	}
 	
 	ud_obj = emalloc(sizeof(ud_t));
-	memset(ud_obj, 0, sizeof(ud_t));
 	
 	ud_init(ud_obj);
-	ud_set_mode(ud_obj, 64);
 	ud_set_syntax(ud_obj, UD_SYN_ATT);
 	
 	ZEND_REGISTER_RESOURCE(return_value, ud_obj, le_udis86);
@@ -147,7 +148,7 @@ static PHP_FUNCTION(udis86_input_file)
 /* {{{ proto int udis86_disassemble(void)
    Disassemble the internal buffer and return the number of bytes
    disassembled */
-PHP_FUNCTION(udis86_disassemble)
+static PHP_FUNCTION(udis86_disassemble)
 {
 	ud_t *ud_obj;
 	zval *ud;
@@ -199,7 +200,7 @@ static PHP_FUNCTION(udis86_insn_len)
 }
 /* }}} */
 
-/* {{{ proto udis86_insn_hex(resource obj)
+/* {{{ proto string udis86_insn_hex(resource obj)
    Return the hexadecimal representation of the disassembled instruction */
 static PHP_FUNCTION(udis86_insn_hex)
 {
@@ -214,6 +215,25 @@ static PHP_FUNCTION(udis86_insn_hex)
 	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
 	
 	RETURN_STRING(ud_insn_hex(ud_obj), 1);
+}
+/* }}} */
+
+/* {{{ proto int udis86_insn_off(resource obj)
+   Return the offset of the disassembled instruction relative to program
+   counter value specified internally */
+static PHP_FUNCTION(udis86_insn_off)
+{
+	ud_t *ud_obj;
+	zval *ud;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
+		&ud) == FAILURE) {
+		return;
+	}
+	
+	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	
+	RETURN_LONG(ud_insn_off(ud_obj));
 }
 /* }}} */
 
@@ -233,6 +253,53 @@ static PHP_FUNCTION(udis86_input_skip)
 	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
 	
 	ud_input_skip(ud_obj, n);
+}
+/* }}} */
+
+/* {{{ proto void udis86_set_pc(resource obj, int pc)
+   Set the program counter */
+static PHP_FUNCTION(udis86_set_pc)
+{
+	ud_t *ud_obj;
+	zval *ud;
+	long pc;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl",
+		&ud, &pc) == FAILURE) {
+		return;
+	}
+	
+	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	
+	ud_set_pc(ud_obj, pc);
+}
+/* }}} */
+
+/* {{{ proto void udis86_set_syntax(resource obj, int syntax)
+   Set the syntax to be used in the disassembly representation */
+static PHP_FUNCTION(udis86_set_syntax)
+{
+	ud_t *ud_obj;
+	zval *ud;
+	long syntax;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl",
+		&ud, &syntax) == FAILURE) {
+		return;
+	}
+	
+	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	
+	switch (syntax) {
+		case PHP_UDIS86_ATT:
+			ud_set_syntax(ud_obj, UD_SYN_ATT);
+			break;
+		case PHP_UDIS86_INTEL:
+			ud_set_syntax(ud_obj, UD_SYN_INTEL);
+			break;
+		default:
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid syntax");
+	}
 }
 /* }}} */
 
@@ -270,8 +337,11 @@ const zend_function_entry udis86_functions[] = {
 	PHP_FE(udis86_insn_asm,    arginfo_udis86_obj_only)
 	PHP_FE(udis86_insn_len,    arginfo_udis86_obj_only)
 	PHP_FE(udis86_insn_hex,    arginfo_udis86_obj_only)
+	PHP_FE(udis86_insn_off,    arginfo_udis86_obj_only)
 	PHP_FE(udis86_input_skip,  arginfo_udis86_input_skip)
 	PHP_FE(udis86_set_mode,    arginfo_udis86_set_mode)
+	PHP_FE(udis86_set_pc,      arginfo_udis86_set_mode)
+	PHP_FE(udis86_set_syntax,  arginfo_udis86_set_mode)
 	PHP_FE_END
 };
 /* }}} */
