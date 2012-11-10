@@ -31,48 +31,11 @@
 /* True global resources - no need for thread safety here */
 static int le_udis86;
 
-/* {{{ php_udis86_functions[]
- *
- * Every user visible function must have an entry in php_udis86_functions[].
- */
-const zend_function_entry udis86_functions[] = {
-	PHP_FE(udis86_init,	NULL)
-	PHP_FE(udis86_input_file, NULL)
-	PHP_FE(udis86_disassemble, NULL)
-	PHP_FE(udis86_insn_asm, NULL)
-	PHP_FE(udis86_insn_len, NULL)
-	PHP_FE(udis86_insn_hex, NULL)
-	PHP_FE(udis86_input_skip, NULL)
-	PHP_FE(udis86_set_mode, NULL)
-	PHP_FE_END
-};
-/* }}} */
-
-/* {{{ php_udis86_module_entry
- */
-zend_module_entry udis86_module_entry = {
-#if ZEND_MODULE_API_NO >= 20010901
-	STANDARD_MODULE_HEADER,
-#endif
-	"udis86",
-	udis86_functions,
-	PHP_MINIT(udis86),
-	PHP_MSHUTDOWN(udis86),
-	NULL,
-	NULL,
-	PHP_MINFO(udis86),
-#if ZEND_MODULE_API_NO >= 20010901
-	PHP_UDIS86_VERSION,
-#endif
-	STANDARD_MODULE_PROPERTIES
-};
-/* }}} */
-
 #ifdef COMPILE_DL_UDIS86
 ZEND_GET_MODULE(udis86)
 #endif
 
-static void udis86_resource_destructor(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
+static void udis86_resource_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
 {
 	if (rsrc->ptr) {
 		efree(rsrc->ptr);
@@ -86,7 +49,7 @@ static void udis86_resource_destructor(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* 
 PHP_MINIT_FUNCTION(udis86)
 {	
 	le_udis86 = zend_register_list_destructors_ex(
-		udis86_resource_destructor, NULL, "udis86", module_number);	
+		udis86_resource_dtor, NULL, "udis86", module_number);	
 	
 	return SUCCESS;
 }
@@ -112,7 +75,7 @@ PHP_MINFO_FUNCTION(udis86)
 
 /* {{{ proto resource udis86_init(void)
    Return a resource of an initialized udis86 data */
-PHP_FUNCTION(udis86_init)
+static PHP_FUNCTION(udis86_init)
 {
 	ud_t *ud_obj;
 
@@ -133,7 +96,7 @@ PHP_FUNCTION(udis86_init)
 
 /* {{{ proto void udis86_set_mode(int mode)
    Set the mode of disassembly */
-PHP_FUNCTION(udis86_set_mode) 
+static PHP_FUNCTION(udis86_set_mode) 
 {
 	ud_t *ud_obj;
 	zval *ud;
@@ -160,7 +123,7 @@ PHP_FUNCTION(udis86_set_mode)
 
 /* {{{ proto void udis86_input_file(resource obj, string file)
    Set the file as internal buffer */
-PHP_FUNCTION(udis86_input_file) 
+static PHP_FUNCTION(udis86_input_file) 
 {
 	ud_t *ud_obj;
 	zval *ud;
@@ -202,7 +165,7 @@ PHP_FUNCTION(udis86_disassemble)
 
 /* {{{ proto string udis86_insn_asm(resource obj)
    Return the string representation of disassembled instruction */
-PHP_FUNCTION(udis86_insn_asm)
+static PHP_FUNCTION(udis86_insn_asm)
 {
 	ud_t *ud_obj;
 	zval *ud;
@@ -220,7 +183,7 @@ PHP_FUNCTION(udis86_insn_asm)
 
 /* {{{ proto int udis86_insn_len(resource obj)
    Return the number of bytes of the disassembled instruction */
-PHP_FUNCTION(udis86_insn_len)
+static PHP_FUNCTION(udis86_insn_len)
 {
 	ud_t *ud_obj;
 	zval *ud;
@@ -238,7 +201,7 @@ PHP_FUNCTION(udis86_insn_len)
 
 /* {{{ proto udis86_insn_hex(resource obj)
    Return the hexadecimal representation of the disassembled instruction */
-PHP_FUNCTION(udis86_insn_hex)
+static PHP_FUNCTION(udis86_insn_hex)
 {
 	ud_t *ud_obj;
 	zval *ud;
@@ -256,7 +219,7 @@ PHP_FUNCTION(udis86_insn_hex)
 
 /* {{{ proto void udis86_input_skip(resource obj, int n)
    Skips N bytes in the input stream */
-PHP_FUNCTION(udis86_input_skip)
+static PHP_FUNCTION(udis86_input_skip)
 {
 	ud_t *ud_obj;
 	zval *ud;
@@ -271,6 +234,48 @@ PHP_FUNCTION(udis86_input_skip)
 	
 	ud_input_skip(ud_obj, n);
 }
+/* }}} */
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_finfo_buffer, 0, 0, 2)
+	ZEND_ARG_INFO(0, finfo)
+	ZEND_ARG_INFO(0, string)
+	ZEND_ARG_INFO(0, options)
+	ZEND_ARG_INFO(0, context)
+ZEND_END_ARG_INFO()
+
+/* {{{ php_udis86_functions[]
+ */
+const zend_function_entry udis86_functions[] = {
+	PHP_FE(udis86_init,	NULL)
+	PHP_FE(udis86_input_file, NULL)
+	PHP_FE(udis86_disassemble, NULL)
+	PHP_FE(udis86_insn_asm, NULL)
+	PHP_FE(udis86_insn_len, NULL)
+	PHP_FE(udis86_insn_hex, NULL)
+	PHP_FE(udis86_input_skip, NULL)
+	PHP_FE(udis86_set_mode, NULL)
+	PHP_FE_END
+};
+/* }}} */
+
+/* {{{ php_udis86_module_entry
+ */
+zend_module_entry udis86_module_entry = {
+#if ZEND_MODULE_API_NO >= 20010901
+	STANDARD_MODULE_HEADER,
+#endif
+	"udis86",
+	udis86_functions,
+	PHP_MINIT(udis86),
+	PHP_MSHUTDOWN(udis86),
+	NULL,
+	NULL,
+	PHP_MINFO(udis86),
+#if ZEND_MODULE_API_NO >= 20010901
+	PHP_UDIS86_VERSION,
+#endif
+	STANDARD_MODULE_PROPERTIES
+};
 /* }}} */
 
 /*
