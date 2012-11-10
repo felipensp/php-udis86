@@ -32,6 +32,7 @@ extern zend_module_entry udis86_module_entry;
 
 #define PHP_UDIS86_ATT   1
 #define PHP_UDIS86_INTEL 2
+#define PHP_UDIS86_AMD   3
 
 #ifdef ZTS
 #define PHP_UDIS86_G(v) TSRMG(udis86_globals_id, zend_udis86_globals *, v)

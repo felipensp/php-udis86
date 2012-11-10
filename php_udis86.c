@@ -48,8 +48,11 @@ static void udis86_resource_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
  */
 PHP_MINIT_FUNCTION(udis86)
 {
+	/* For udis86_set_syntax(): */
 	REGISTER_LONG_CONSTANT("UDIS86_ATT",   PHP_UDIS86_ATT,   CONST_CS|CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("UDIS86_INTEL", PHP_UDIS86_INTEL, CONST_CS|CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("UDIS86_INTEL", PHP_UDIS86_INTEL, CONST_CS|CONST_PERSISTENT);	
+	/* For udis86_set_vendor(): */
+	REGISTER_LONG_CONSTANT("UDIS86_AMD",   PHP_UDIS86_AMD,   CONST_CS|CONST_PERSISTENT);
 	
 	le_udis86 = zend_register_list_destructors_ex(
 		udis86_resource_dtor, NULL, "udis86", module_number);	
@@ -322,6 +325,34 @@ static PHP_FUNCTION(udis86_set_syntax)
 }
 /* }}} */
 
+/* {{{ proto void udis86_set_vendor(resource obj, int vendor)
+   Set the vendor of whose instruction to choose from */
+static PHP_FUNCTION(udis86_set_vendor)
+{
+	ud_t *ud_obj;
+	zval *ud;
+	long vendor;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl",
+		&ud, &vendor) == FAILURE) {
+		return;
+	}
+	
+	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	
+	switch (vendor) {
+		case PHP_UDIS86_AMD:
+			ud_set_vendor(ud_obj, UD_VENDOR_AMD);
+			break;
+		case PHP_UDIS86_INTEL:
+			ud_set_vendor(ud_obj, UD_VENDOR_INTEL);
+			break;
+		default:
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid vendor");
+	}
+}
+/* }}} */
+
 /* {{{ arginfo 
  */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_udis86_void, 0, 0, 0)
@@ -343,7 +374,7 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_udis86_set_mode, 0, 0, 2)
 	ZEND_ARG_INFO(0, obj)
-	ZEND_ARG_INFO(0, mode)
+	ZEND_ARG_INFO(0, num)
 ZEND_END_ARG_INFO()
 /* }}} */
 
@@ -361,6 +392,7 @@ const zend_function_entry udis86_functions[] = {
 	PHP_FE(udis86_set_mode,    arginfo_udis86_set_mode)
 	PHP_FE(udis86_set_pc,      arginfo_udis86_set_mode)
 	PHP_FE(udis86_set_syntax,  arginfo_udis86_set_mode)
+	PHP_FE(udis86_set_vendor,  arginfo_udis86_set_mode)
 	PHP_FE_END
 };
 /* }}} */
