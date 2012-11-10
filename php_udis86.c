@@ -43,6 +43,7 @@ const zend_function_entry udis86_functions[] = {
 	PHP_FE(udis86_insn_len, NULL)
 	PHP_FE(udis86_insn_hex, NULL)
 	PHP_FE(udis86_input_skip, NULL)
+	PHP_FE(udis86_set_mode, NULL)
 	PHP_FE_END
 };
 /* }}} */
@@ -130,6 +131,35 @@ PHP_FUNCTION(udis86_init)
 }
 /* }}} */
 
+/* {{{ proto void udis86_set_mode(int mode)
+   Set the mode of disassembly */
+PHP_FUNCTION(udis86_set_mode) 
+{
+	ud_t *ud_obj;
+	zval *ud;
+	long mode;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl",
+		&ud, &mode) == FAILURE) {
+		return;
+	}
+	
+	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	
+	switch (mode) {
+		case 16:
+		case 32:
+		case 64:
+			ud_set_mode(ud_obj, mode);
+			break;
+		default:
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid mode");
+	}
+}
+/* }}} */
+
+/* {{{ proto void udis86_input_file(resource obj, string file)
+   Set the file as internal buffer */
 PHP_FUNCTION(udis86_input_file) 
 {
 	ud_t *ud_obj;
@@ -149,8 +179,11 @@ PHP_FUNCTION(udis86_input_file)
 	
 	ud_set_input_file(ud_obj, fp);
 }
+/* }}} */
 
-
+/* {{{ proto int udis86_disassemble(void)
+   Disassemble the internal buffer and return the number of bytes
+   disassembled */
 PHP_FUNCTION(udis86_disassemble)
 {
 	ud_t *ud_obj;
@@ -165,8 +198,10 @@ PHP_FUNCTION(udis86_disassemble)
 	
 	RETURN_LONG(ud_disassemble(ud_obj));
 }
+/* }}} */
 
-
+/* {{{ proto string udis86_insn_asm(resource obj)
+   Return the string representation of disassembled instruction */
 PHP_FUNCTION(udis86_insn_asm)
 {
 	ud_t *ud_obj;
@@ -181,7 +216,10 @@ PHP_FUNCTION(udis86_insn_asm)
 	
 	RETURN_STRING(ud_insn_asm(ud_obj), 1);
 }
+/* }}} */
 
+/* {{{ proto int udis86_insn_len(resource obj)
+   Return the number of bytes of the disassembled instruction */
 PHP_FUNCTION(udis86_insn_len)
 {
 	ud_t *ud_obj;
@@ -196,7 +234,10 @@ PHP_FUNCTION(udis86_insn_len)
 	
 	RETURN_LONG(ud_insn_len(ud_obj));
 }
+/* }}} */
 
+/* {{{ proto udis86_insn_hex(resource obj)
+   Return the hexadecimal representation of the disassembled instruction */
 PHP_FUNCTION(udis86_insn_hex)
 {
 	ud_t *ud_obj;
@@ -211,14 +252,17 @@ PHP_FUNCTION(udis86_insn_hex)
 	
 	RETURN_STRING(ud_insn_hex(ud_obj), 1);
 }
+/* }}} */
 
+/* {{{ proto void udis86_input_skip(resource obj, int n)
+   Skips N bytes in the input stream */
 PHP_FUNCTION(udis86_input_skip)
 {
 	ud_t *ud_obj;
 	zval *ud;
 	long n;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl",
 		&ud, &n) == FAILURE) {
 		return;
 	}
@@ -227,7 +271,7 @@ PHP_FUNCTION(udis86_input_skip)
 	
 	ud_input_skip(ud_obj, n);
 }
-	
+/* }}} */
 
 /*
  * Local variables:

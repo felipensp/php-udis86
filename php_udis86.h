@@ -49,6 +49,7 @@ PHP_FUNCTION(udis86_insn_asm);
 PHP_FUNCTION(udis86_insn_len);
 PHP_FUNCTION(udis86_insn_hex);
 PHP_FUNCTION(udis86_input_skip);
+PHP_FUNCTION(udis86_set_mode);
 
 #ifdef ZTS
 #define PHP_UDIS86_G(v) TSRMG(udis86_globals_id, zend_udis86_globals *, v)
