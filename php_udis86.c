@@ -105,6 +105,26 @@ static PHP_FUNCTION(udis86_init)
 }
 /* }}} */
 
+/* {{{ proto void udis86_close(resource obj)
+   Close the current working stream being used */
+static PHP_FUNCTION(udis86_close)
+{
+	php_udis86_obj *ud_obj;
+	zval *ud;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
+		&ud) == FAILURE) {
+		return;
+	}
+	
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
+	
+	if (ud_obj->stream) {
+		php_stream_close(ud_obj->stream);
+		ud_obj->stream = NULL;
+	}
+}
+
 /* {{{ proto void udis86_set_mode(int mode)
    Set the mode of disassembly */
 static PHP_FUNCTION(udis86_set_mode) 
@@ -190,6 +210,10 @@ static PHP_FUNCTION(udis86_disassemble)
 	}
 	
 	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
+	
+	if (ud_obj->stream == NULL) {
+		RETURN_LONG(0);
+	}
 	
 	RETURN_LONG(ud_disassemble(&ud_obj->ud));
 }
@@ -391,6 +415,7 @@ ZEND_END_ARG_INFO()
  */
 const zend_function_entry udis86_functions[] = {
 	PHP_FE(udis86_init,        arginfo_udis86_void)
+	PHP_FE(udis86_close,       arginfo_udis86_obj_only)
 	PHP_FE(udis86_input_file,  arginfo_udis86_input_file)
 	PHP_FE(udis86_disassemble, arginfo_udis86_obj_only)
 	PHP_FE(udis86_insn_asm,    arginfo_udis86_obj_only)
