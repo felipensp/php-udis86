@@ -21,6 +21,8 @@
 #ifndef PHP_UDIS86_H
 #define PHP_UDIS86_H
 
+#include <udis86.h>
+
 #define PHP_UDIS86_VERSION "0.1"
 
 extern zend_module_entry udis86_module_entry;
@@ -29,6 +31,11 @@ extern zend_module_entry udis86_module_entry;
 #ifdef ZTS
 #include "TSRM.h"
 #endif
+
+typedef struct _php_udis86_obj {
+	ud_t ud;
+	php_stream *stream;
+} php_udis86_obj;
 
 #define PHP_UDIS86_ATT   1
 #define PHP_UDIS86_INTEL 2

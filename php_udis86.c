@@ -26,7 +26,6 @@
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "php_udis86.h"
-#include <udis86.h>
 
 /* True global resources - no need for thread safety here */
 static int le_udis86;
@@ -38,6 +37,11 @@ ZEND_GET_MODULE(udis86)
 static void udis86_resource_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
 {
 	if (rsrc->ptr) {
+		php_udis86_obj *ud = rsrc->ptr;
+		if (ud->stream) {
+			php_stream_close(ud->stream);
+			ud->stream = NULL;
+		}
 		efree(rsrc->ptr);
 		rsrc->ptr = NULL;
 	}
@@ -83,17 +87,19 @@ PHP_MINFO_FUNCTION(udis86)
    Return a resource of an initialized udis86 data */
 static PHP_FUNCTION(udis86_init)
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 
 	if (zend_parse_parameters_none() == FAILURE) {
 		return;
 	}
 	
-	ud_obj = emalloc(sizeof(ud_t));
+	ud_obj = emalloc(sizeof(php_udis86_obj));
 	
-	ud_init(ud_obj);
-	ud_set_syntax(ud_obj, UD_SYN_ATT);
-	ud_set_input_buffer(ud_obj, "", 0);
+	ud_init(&ud_obj->ud);
+	ud_set_syntax(&ud_obj->ud, UD_SYN_ATT);
+	ud_set_input_buffer(&ud_obj->ud, "", 0);
+	
+	ud_obj->stream = NULL;
 	
 	ZEND_REGISTER_RESOURCE(return_value, ud_obj, le_udis86);
 }
@@ -103,7 +109,7 @@ static PHP_FUNCTION(udis86_init)
    Set the mode of disassembly */
 static PHP_FUNCTION(udis86_set_mode) 
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	long mode;
 	
@@ -112,13 +118,13 @@ static PHP_FUNCTION(udis86_set_mode)
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
 	switch (mode) {
 		case 16:
 		case 32:
 		case 64:
-			ud_set_mode(ud_obj, mode);
+			ud_set_mode(&ud_obj->ud, mode);
 			break;
 		default:
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid mode");
@@ -127,41 +133,44 @@ static PHP_FUNCTION(udis86_set_mode)
 /* }}} */
 
 /* {{{ proto bool udis86_input_file(resource obj, string file)
-   Set the file as internal buffer, return false if any error ocurred,
+   Set the stream as internal buffer, return false if any error ocurred,
    otherwise true */
 static PHP_FUNCTION(udis86_input_file) 
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	char *fname;
 	int fname_len;
-	FILE *fp;
-	char resolved_path[MAXPATHLEN];
+	FILE *fp = NULL;
+	php_stream *stream;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs",
 		&ud, &fname, &fname_len) == FAILURE) {
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
-#if PHP_API_VERSION < 20100412
-	if ((PG(safe_mode) && (!php_checkuid(fname, NULL, CHECKUID_CHECK_FILE_AND_DIR))) || php_check_open_basedir(fname TSRMLS_CC)) {
-#else
-	if (php_check_open_basedir(fname TSRMLS_CC)) {
-#endif
-		RETURN_FALSE;
+	if (ud_obj->stream != NULL) {
+		php_stream_close(ud_obj->stream);
+		ud_obj->stream = NULL;
 	}
-	if (!expand_filepath_with_mode(fname, resolved_path, NULL, 0, CWD_EXPAND TSRMLS_CC)) {
+
+	stream = php_stream_open_wrapper(fname, "rb", REPORT_ERRORS, NULL);
+	
+	if (stream == NULL) {
 		RETURN_FALSE;
 	}
 		
-	if ((fp = fopen(resolved_path, "rb")) == NULL) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to open file");
+	if (php_stream_cast(stream, PHP_STREAM_AS_STDIO, (void**)&fp, 
+		REPORT_ERRORS) == FAILURE) {
+		php_stream_close(stream);
 		RETURN_FALSE;
 	}
 	
-	ud_set_input_file(ud_obj, fp);
+	ud_obj->stream = stream;
+	
+	ud_set_input_file(&ud_obj->ud, fp);
 	
 	RETURN_TRUE;
 }
@@ -172,7 +181,7 @@ static PHP_FUNCTION(udis86_input_file)
    disassembled */
 static PHP_FUNCTION(udis86_disassemble)
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
@@ -180,9 +189,9 @@ static PHP_FUNCTION(udis86_disassemble)
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
-	RETURN_LONG(ud_disassemble(ud_obj));
+	RETURN_LONG(ud_disassemble(&ud_obj->ud));
 }
 /* }}} */
 
@@ -190,7 +199,7 @@ static PHP_FUNCTION(udis86_disassemble)
    Return the string representation of disassembled instruction */
 static PHP_FUNCTION(udis86_insn_asm)
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
@@ -198,9 +207,9 @@ static PHP_FUNCTION(udis86_insn_asm)
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
-	RETURN_STRING(ud_insn_asm(ud_obj), 1);
+	RETURN_STRING(ud_insn_asm(&ud_obj->ud), 1);
 }
 /* }}} */
 
@@ -208,7 +217,7 @@ static PHP_FUNCTION(udis86_insn_asm)
    Return the number of bytes of the disassembled instruction */
 static PHP_FUNCTION(udis86_insn_len)
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
@@ -216,9 +225,9 @@ static PHP_FUNCTION(udis86_insn_len)
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
-	RETURN_LONG(ud_insn_len(ud_obj));
+	RETURN_LONG(ud_insn_len(&ud_obj->ud));
 }
 /* }}} */
 
@@ -226,7 +235,7 @@ static PHP_FUNCTION(udis86_insn_len)
    Return the hexadecimal representation of the disassembled instruction */
 static PHP_FUNCTION(udis86_insn_hex)
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
@@ -234,9 +243,9 @@ static PHP_FUNCTION(udis86_insn_hex)
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
-	RETURN_STRING(ud_insn_hex(ud_obj), 1);
+	RETURN_STRING(ud_insn_hex(&ud_obj->ud), 1);
 }
 /* }}} */
 
@@ -245,7 +254,7 @@ static PHP_FUNCTION(udis86_insn_hex)
    counter value specified internally */
 static PHP_FUNCTION(udis86_insn_off)
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r",
@@ -253,9 +262,9 @@ static PHP_FUNCTION(udis86_insn_off)
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
-	RETURN_LONG(ud_insn_off(ud_obj));
+	RETURN_LONG(ud_insn_off(&ud_obj->ud));
 }
 /* }}} */
 
@@ -263,7 +272,7 @@ static PHP_FUNCTION(udis86_insn_off)
    Skips N bytes in the input stream */
 static PHP_FUNCTION(udis86_input_skip)
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	long n;
 	
@@ -272,9 +281,9 @@ static PHP_FUNCTION(udis86_input_skip)
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
-	ud_input_skip(ud_obj, n);
+	ud_input_skip(&ud_obj->ud, n);
 }
 /* }}} */
 
@@ -282,7 +291,7 @@ static PHP_FUNCTION(udis86_input_skip)
    Set the program counter */
 static PHP_FUNCTION(udis86_set_pc)
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	long pc;
 	
@@ -291,9 +300,9 @@ static PHP_FUNCTION(udis86_set_pc)
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
-	ud_set_pc(ud_obj, pc);
+	ud_set_pc(&ud_obj->ud, pc);
 }
 /* }}} */
 
@@ -301,7 +310,7 @@ static PHP_FUNCTION(udis86_set_pc)
    Set the syntax to be used in the disassembly representation */
 static PHP_FUNCTION(udis86_set_syntax)
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	long syntax;
 	
@@ -310,14 +319,14 @@ static PHP_FUNCTION(udis86_set_syntax)
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
 	switch (syntax) {
 		case PHP_UDIS86_ATT:
-			ud_set_syntax(ud_obj, UD_SYN_ATT);
+			ud_set_syntax(&ud_obj->ud, UD_SYN_ATT);
 			break;
 		case PHP_UDIS86_INTEL:
-			ud_set_syntax(ud_obj, UD_SYN_INTEL);
+			ud_set_syntax(&ud_obj->ud, UD_SYN_INTEL);
 			break;
 		default:
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid syntax");
@@ -329,7 +338,7 @@ static PHP_FUNCTION(udis86_set_syntax)
    Set the vendor of whose instruction to choose from */
 static PHP_FUNCTION(udis86_set_vendor)
 {
-	ud_t *ud_obj;
+	php_udis86_obj *ud_obj;
 	zval *ud;
 	long vendor;
 	
@@ -338,14 +347,14 @@ static PHP_FUNCTION(udis86_set_vendor)
 		return;
 	}
 	
-	ZEND_FETCH_RESOURCE(ud_obj, ud_t*, &ud, -1, "udis86", le_udis86);
+	ZEND_FETCH_RESOURCE(ud_obj, php_udis86_obj*, &ud, -1, "udis86", le_udis86);
 	
 	switch (vendor) {
 		case PHP_UDIS86_AMD:
-			ud_set_vendor(ud_obj, UD_VENDOR_AMD);
+			ud_set_vendor(&ud_obj->ud, UD_VENDOR_AMD);
 			break;
 		case PHP_UDIS86_INTEL:
-			ud_set_vendor(ud_obj, UD_VENDOR_INTEL);
+			ud_set_vendor(&ud_obj->ud, UD_VENDOR_INTEL);
 			break;
 		default:
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid vendor");
