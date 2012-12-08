@@ -26,4 +26,4 @@ modules/
 php_udis86.lo
 run-tests.php
 udis86.la
-
+*.tgz
