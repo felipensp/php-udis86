@@ -23,7 +23,7 @@
 
 #include <udis86.h>
 
-#define PHP_UDIS86_VERSION "0.1"
+#define PHP_UDIS86_VERSION "0.1.0"
 
 extern zend_module_entry udis86_module_entry;
 #define phpext_udis86_ptr &udis86_module_entry
