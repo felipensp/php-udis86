@@ -3,6 +3,8 @@ php-udis86
 
 PHP bindings for udis86 library
 
+For more information: http://pecl.php.net/package/udis86
+
 
 ```php
 <?php
@@ -20,4 +22,6 @@ while (udis86_disassemble($rs)) {
 		udis86_insn_len($rs),
 		udis86_insn_hex($rs));
 }
+
+udis86_close($rs);
 ```
