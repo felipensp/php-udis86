@@ -4,6 +4,12 @@
 ARG_WITH("udis86", "for udis86 support", "no");
 
 if (PHP_UDIS86 != "no") {
-	EXTENSION("udis86", "php_udis86.c");
+	
+	if (CHECK_LIB("libudis86.lib", "udis86") &&
+			CHECK_HEADER_ADD_INCLUDE("udis86.h", "CFLAGS_UDIS86")) {
+		EXTENSION("udis86", "php_udis86.c");
+	} else {
+		WARNING("v8js not enabled, headers or libs not found");
+	}
 }
 
